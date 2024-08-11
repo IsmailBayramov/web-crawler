@@ -1,15 +1,37 @@
 from bs4 import BeautifulSoup
 import requests
-from urllib.parse import urljoin
-import json
+from urllib.parse import urljoin, urlparse
+
+MAX_DEPTH = 100
+URL = 'https://caisu1.ning.com/photo/albums/uyjihgpq'
 
 sites = []
 depth = 0
+counter = 0
+
+def uri_validator(x):
+    try:
+        result = urlparse(x)
+        return all([result.scheme, result.netloc])
+    except AttributeError:
+        return False
+    
+def save_links():
+    with open("links.txt", "a") as file:
+        for site in sites:
+            file.write(f"{site}\n")
+
+def print_links():
+    print("\n\nRESULT:\n")
+
+    with open('links.txt', 'r') as file:
+        for line in file:
+            print(line)
 
 def get_links(url = 'https://apple.com/'):
-    global depth
+    global depth, counter
     
-    if depth >= 100: return
+    if depth >= MAX_DEPTH: return
 
     try:
         page = requests.get(url)
@@ -28,16 +50,23 @@ def get_links(url = 'https://apple.com/'):
                 if link not in ['', '#']:
                     link = urljoin(url, link)
 
-                    if link not in sites:
+                    if link not in sites and uri_validator(link):
+                        counter += 1
+
                         sites.append(link)
+
+                        if counter % 100 == 0:
+                            save_links()
+
+                        if counter % 10000 == 0:
+                            save_links()
+                            sites.clear()
+
                         get_links(link)
     except:
         print(f"Error: {url}")
 
-get_links("https://caisu1.ning.com/photo/albums/uyjihgpq")
-
-sites.reverse()
-
-print("\n\nRESULT:\n")
-for site in sites:
-    print(site)
+get_links(URL)
+if sites:
+    save_links()
+print_links()
