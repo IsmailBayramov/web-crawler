@@ -1,10 +1,11 @@
 from bs4 import BeautifulSoup
 import requests
 from urllib.parse import urljoin, urlparse
+from db import add_link, close_connection
 
-MAX_DEPTH = 150
+MAX_DEPTH = 400
 URL = 'https://apple.com'
-FILENAME = 'links.txt'
+# FILENAME = 'links.txt'
 
 sites = set()
 depth = 0
@@ -17,16 +18,16 @@ def uri_validator(x):
     except AttributeError:
         return False
 
-def save_links(filename='links.txt'):
-    with open(filename, "a") as file:
-        for site in sites:
-            file.write(f"{site}\n")
+# def save_links(filename='links.txt'):
+#     with open(filename, "a") as file:
+#         for site in sites:
+#             file.write(f"{site}\n")
 
-def print_links():
-    print("\n\nRESULT:\n")
-    with open(FILENAME, 'r') as file:
-        for line in file:
-            print(line)
+# def print_links():
+#     print("\n\nRESULT:\n")
+#     with open(FILENAME, 'r') as file:
+#         for line in file:
+#             print(line)
 
 def get_links(url='https://apple.com/'):
     global depth, counter
@@ -55,18 +56,20 @@ def get_links(url='https://apple.com/'):
 
                         sites.add(link)
 
-                        if counter % 100 == 0:
-                            save_links("linkss.txt")
+                        # if counter % 100 == 0:
+                        #     save_links("linkss.txt")
 
-                        if counter % 10000 == 0:
-                            save_links()
-                            sites.clear()
+                        # if counter % 10000 == 0:
+                        #     save_links()
+                        #     sites.clear()
+                        add_link(link)
 
                         get_links(link)
     except Exception as e:
         print(f"Error: {url}, Exception: {e}")
 
 get_links(URL)
-if sites:
-    save_links()
-print_links()
+close_connection()
+# if sites:
+#     save_links()
+# print_links()
