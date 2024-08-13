@@ -1,15 +1,13 @@
 from bs4 import BeautifulSoup
 import requests
 from urllib.parse import urljoin, urlparse
-from db import add_link, close_connection
+import db
 
-MAX_DEPTH = 400
-URL = 'https://apple.com'
-# FILENAME = 'links.txt'
+MAX_DEPTH = 4
+URL = 'http://apple.com/'
 
-sites = set()
-depth = 0
-counter = 0
+# Хранение уже обработанных ссылок
+visited_links = set()
 
 def uri_validator(x):
     try:
@@ -18,58 +16,56 @@ def uri_validator(x):
     except AttributeError:
         return False
 
-# def save_links(filename='links.txt'):
-#     with open(filename, "a") as file:
-#         for site in sites:
-#             file.write(f"{site}\n")
-
-# def print_links():
-#     print("\n\nRESULT:\n")
-#     with open(FILENAME, 'r') as file:
-#         for line in file:
-#             print(line)
-
-def get_links(url='https://apple.com/'):
-    global depth, counter
-
-    if depth >= MAX_DEPTH: return
+def get_links(url, depth, connection):
+    if depth >= MAX_DEPTH: 
+        return
 
     try:
         page = requests.get(url, timeout=10)
-        print(page.status_code)
-
         if page.status_code == 200:
-            depth += 1
-            print(f"Depth: {depth}\n")
+            print(f"Depth: {depth} - URL: {url}")
 
             soup = BeautifulSoup(page.text, "html.parser")
             allNews = soup.findAll('a', href=True)
 
             for news in allNews:
-                link = news['href']
-                
-                if link not in ['', '#']:
-                    link = urljoin(url, link)
+                href = news['href']
+                href = urljoin(url, href)
+                parsed = urlparse(href)
+                href = parsed.scheme + "://" + parsed.netloc + parsed.path
 
-                    if link not in sites and uri_validator(link):
-                        counter += 1
+                if uri_validator(href) and parsed.scheme in ('http', 'https') and href not in visited_links:
+                    visited_links.add(href)
+                    db.add_link(connection, href)
+                    # Рекурсивный вызов с увеличением глубины
+                    get_links(href, depth + 1, connection)
 
-                        sites.add(link)
-
-                        # if counter % 100 == 0:
-                        #     save_links("linkss.txt")
-
-                        # if counter % 10000 == 0:
-                        #     save_links()
-                        #     sites.clear()
-                        add_link(link)
-
-                        get_links(link)
     except Exception as e:
         print(f"Error: {url}, Exception: {e}")
 
-get_links(URL)
-close_connection()
-# if sites:
-#     save_links()
-# print_links()
+if __name__ == "__main__":
+    connection = db.init_db()
+
+    # Начальная обработка
+    links = []
+    page = requests.get(URL, timeout=10)
+
+    if page.status_code == 200:
+        soup = BeautifulSoup(page.text, "html.parser")
+        allNews = soup.findAll('a', href=True)
+
+        for news in allNews:
+            href = news['href']
+            href = urljoin(URL, href)
+            parsed = urlparse(href)
+            href = parsed.scheme + "://" + parsed.netloc + parsed.path
+
+            if uri_validator(href) and parsed.scheme in ('http', 'https'):
+                visited_links.add(href)
+                db.add_link(connection, href)
+                links.append(href)
+    
+    for link in links:
+        get_links(link, 0, connection)
+
+    connection.close()
